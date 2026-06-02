@@ -22,8 +22,6 @@ O sistema segue uma arquitetura baseada em microserviços:
 ```
 [ Spring Boot API ] → [ PostgreSQL ]
          ↓
-   (futuro)
-         ↓
 [ Python IA Service ]
 ```
 
@@ -33,7 +31,7 @@ O sistema segue uma arquitetura baseada em microserviços:
 
 ### Backend
 
-* Java 17+
+* Java 21
 * Spring Boot
 * Spring Data JPA
 * Spring Web
@@ -215,12 +213,5 @@ Com execução periódica (scheduler):
 * Cache de consultas
 * Integração com APIs externas (Waze, Google)
 * Machine Learning para previsão de tráfego
-* Deploy em cloud (AWS / Railway / Render)
-
----
-
-## 👨‍💻 Autor
-
-Projeto desenvolvido para estudo avançado de backend e integração com IA.
 
 ---
