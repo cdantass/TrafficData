@@ -1,6 +1,6 @@
 package controller;
 
-import dto.RegisterRoute;
+import dto.traffic.RegisterRoute;
 import dto.traffic.DetailRoute;
 import dto.traffic.ListRoute;
 import org.springframework.beans.factory.annotation.Autowired;

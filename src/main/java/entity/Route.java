@@ -1,6 +1,6 @@
 package entity;
 
-import dto.RegisterRoute;
+import dto.traffic.RegisterRoute;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -26,14 +26,24 @@ public class Route {
 
     private Boolean active;
 
-    public Route(RegisterRoute registerRoute) {
-        this.origin = registerRoute.origin();
-        this.destination = registerRoute.destination();
-        this.name = registerRoute.name();
+    public Route(Location origin, Location destination, String name) {
+        this.origin = origin;
+        this.destination = destination;
+        this.name = name;
         this.active = true;
     }
 
-    public void delete(){
+    public void updateRoute(
+            Location origin,
+            Location destination,
+            String name
+    ) {
+        this.origin = origin;
+        this.destination = destination;
+        this.name = name;
+    }
+
+    public void delete() {
         this.active = false;
     }
 }

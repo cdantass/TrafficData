@@ -1,10 +1,7 @@
 package entity;
 
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.time.LocalDateTime;
 
@@ -13,15 +10,17 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @NoArgsConstructor
 @EqualsAndHashCode(of = "id")
+@Setter
 public class TrafficData {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    private String location;
+    @ManyToOne
+    private Route route;
 
-    private LocalDateTime time;
+    private LocalDateTime timestamp;
 
     private Double duration;
 
@@ -30,5 +29,11 @@ public class TrafficData {
     private Double averageSpeed;
 
     @Enumerated(EnumType.STRING)
-    private String trafficLevel;
+    private TrafficLevel trafficLevel;
+
+    public void update(
+            Route route){
+        this.route = route;
+    }
+
 }
