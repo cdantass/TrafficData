@@ -6,10 +6,6 @@ import com.trafficData.Aracaju.entity.User;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
-
 @Service
 public class TokenService {
 
@@ -17,28 +13,27 @@ public class TokenService {
     private String secret;
 
     public String generateToken(User user) {
-        Algorithm algorithm = Algorithm.HMAC256(secret);
-
-        return JWT.create()
-                .withIssuer("traffic-api")
-                .withSubject(user.getEmail())
-                .withExpiresAt(generateExpirationDate())
-                .sign(algorithm);
+        try {
+            Algorithm algorithm = Algorithm.HMAC256(secret);
+            return JWT.create()
+                    .withIssuer("aracaju-api")
+                    .withSubject(user.getEmail())
+                    .sign(algorithm);
+        } catch (Exception e) {
+            throw new RuntimeException("Erro ao gerar token JWT", e);
+        }
     }
 
-    public String validateToken(String token) {
-        Algorithm algorithm = Algorithm.HMAC256(secret);
-
-        return JWT.require(algorithm)
-                .withIssuer("traffic-api")
-                .build()
-                .verify(token)
-                .getSubject();
-    }
-
-    private Instant generateExpirationDate() {
-        return LocalDateTime.now()
-                .plusHours(2)
-                .toInstant(ZoneOffset.of("-03:00"));
+    public String getSubject(String tokenJWT) {
+        try {
+            Algorithm algorithm = Algorithm.HMAC256(secret);
+            return JWT.require(algorithm)
+                    .withIssuer("aracaju-api")
+                    .build()
+                    .verify(tokenJWT)
+                    .getSubject();
+        } catch (Exception e) {
+            throw new RuntimeException("Token JWT inválido ou expirado");
+        }
     }
 }

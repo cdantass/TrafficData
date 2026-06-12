@@ -9,7 +9,6 @@ import com.trafficData.Aracaju.entity.TrafficLevel;
 import com.trafficData.Aracaju.infra.exception.NotFound;
 import com.trafficData.Aracaju.repository.RouteRepository;
 import com.trafficData.Aracaju.repository.TrafficDataRepository;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -20,44 +19,63 @@ import java.time.LocalDateTime;
 @Service
 public class TrafficDataService {
 
-    @Autowired
-    private TrafficDataRepository trafficDataRepository;
+    private final TrafficDataRepository trafficDataRepository;
+    private final RouteRepository routeRepository;
 
-    @Autowired
-    private RouteRepository routeRepository;
+    public TrafficDataService(TrafficDataRepository trafficDataRepository,
+                              RouteRepository routeRepository) {
+        this.trafficDataRepository = trafficDataRepository;
+        this.routeRepository = routeRepository;
+    }
 
     @Transactional
-    public DetailTrafficData register(RegisterTrafficData registerTrafficData) {
-        var route = routeRepository.findById(registerTrafficData.routeId())
+    public DetailTrafficData register(RegisterTrafficData dto) {
+        validateTrafficData(dto.routeId(), dto.duration(), dto.durationInTraffic(), dto.averageSpeed());
+
+        var route = routeRepository.findById(dto.routeId())
                 .orElseThrow(() -> new NotFound("Route not found"));
+
+        if (Boolean.FALSE.equals(route.getActive())) {
+            throw new IllegalArgumentException("Cannot register traffic data for an inactive route");
+        }
 
         var trafficData = new TrafficData();
         trafficData.setRoute(route);
         trafficData.setTimestamp(LocalDateTime.now());
-        trafficData.setDuration(registerTrafficData.duration());
-        trafficData.setDurationInTraffic(registerTrafficData.durationInTraffic());
-        trafficData.setAverageSpeed(registerTrafficData.averageSpeed());
+        trafficData.setDuration(dto.duration());
+        trafficData.setDurationInTraffic(dto.durationInTraffic());
+        trafficData.setAverageSpeed(dto.averageSpeed());
         trafficData.setTrafficLevel(
-                calculateTrafficLevel(
-                        registerTrafficData.duration(),
-                        registerTrafficData.durationInTraffic()
-                )
+                calculateTrafficLevel(dto.duration(), dto.durationInTraffic())
         );
 
         trafficDataRepository.save(trafficData);
+
         return new DetailTrafficData(trafficData);
     }
 
     @Transactional
-    public DetailTrafficData update(Long id, UpdateTrafficData updateTrafficData) {
+    public DetailTrafficData update(Long id, UpdateTrafficData dto) {
+        validateTrafficData(dto.routeId(), dto.duration(), dto.durationInTraffic(), dto.averageSpeed());
+
         var trafficData = trafficDataRepository.findById(id)
                 .orElseThrow(() -> new NotFound("Traffic not found"));
 
-        var route = routeRepository.findById(updateTrafficData.routeId())
+        var route = routeRepository.findById(dto.routeId())
                 .orElseThrow(() -> new NotFound("Route not found"));
+
+        if (Boolean.FALSE.equals(route.getActive())) {
+            throw new IllegalArgumentException("Cannot update traffic data with an inactive route");
+        }
 
         trafficData.setRoute(route);
         trafficData.setTimestamp(LocalDateTime.now());
+        trafficData.setDuration(dto.duration());
+        trafficData.setDurationInTraffic(dto.durationInTraffic());
+        trafficData.setAverageSpeed(dto.averageSpeed());
+        trafficData.setTrafficLevel(
+                calculateTrafficLevel(dto.duration(), dto.durationInTraffic())
+        );
 
         return new DetailTrafficData(trafficData);
     }
@@ -90,10 +108,35 @@ public class TrafficDataService {
 
     @Transactional
     public void delete(Long id) {
-        if (!trafficDataRepository.existsById(id)) {
-            throw new NotFound("Traffic not found");
+        var traffic = trafficDataRepository.findById(id)
+                .orElseThrow(() -> new NotFound("Traffic not found"));
+
+        trafficDataRepository.delete(traffic);
+    }
+
+    private void validateTrafficData(Long routeId,
+                                     Double duration,
+                                     Double durationInTraffic,
+                                     Double averageSpeed) {
+
+        if (routeId == null) {
+            throw new IllegalArgumentException("Route ID is required");
         }
 
-        trafficDataRepository.deleteById(id);
+        if (duration == null || duration <= 0) {
+            throw new IllegalArgumentException("Duration must be greater than zero");
+        }
+
+        if (durationInTraffic == null || durationInTraffic <= 0) {
+            throw new IllegalArgumentException("Duration in traffic must be greater than zero");
+        }
+
+        if (durationInTraffic < duration) {
+            throw new IllegalArgumentException("Duration in traffic cannot be less than duration");
+        }
+
+        if (averageSpeed == null || averageSpeed <= 0) {
+            throw new IllegalArgumentException("Average speed must be greater than zero");
+        }
     }
 }
