@@ -3,6 +3,7 @@ package com.trafficData.Aracaju.service;
 import com.trafficData.Aracaju.dto.trafficPred.PredictRequest;
 import com.trafficData.Aracaju.dto.trafficPred.PredictResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -14,10 +15,19 @@ public class TrafficAIService {
 
     private final RestClient restClient = RestClient.create();
 
-    public PredictResponse predict(Long routeId, int dayOfWeek, int hour, double averageSpeed) {
+    public PredictResponse predict(Long routeId, int dayOfWeek, int hour) {
         return restClient.post()
                 .uri(aiServiceUrl + "/predict")
-                .body(new PredictRequest(routeId, dayOfWeek, hour, averageSpeed))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new PredictRequest(routeId, dayOfWeek, hour))
+                .retrieve()
+                .body(PredictResponse.class);
+    }
+
+    public PredictResponse predictBestHour(Long routeId, int dayOfWeek) {
+        return restClient.get()
+                .uri(aiServiceUrl + "/predict/{routeId}?day_of_week={day}",
+                        routeId, dayOfWeek)
                 .retrieve()
                 .body(PredictResponse.class);
     }

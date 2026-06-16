@@ -1,8 +1,9 @@
 package com.trafficData.Aracaju.dto.trafficPred;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 public record PredictRequest(
-        Long routeId,
-        Integer dayOfWeek,
-        Integer hour,
-        Double averageSpeed
+        @JsonProperty("route_id")    Long routeId,
+        @JsonProperty("day_of_week") int dayOfWeek,
+        int hour
 ) {}
