@@ -1,10 +1,10 @@
 import os
 from collections import Counter
+from datetime import datetime
 from typing import Any, Dict, List, Tuple
 
 import joblib
 import pandas as pd
-
 
 CLASSIFIER_PATH = "models/traffic_classifier.pkl"
 REGRESSOR_PATH = "models/traffic_regressor.pkl"
@@ -14,7 +14,6 @@ METADATA_PATH = "models/metadata.pkl"
 
 
 def models_exist() -> bool:
-    """Verifica se todos os artefatos do modelo estão disponíveis."""
     required_files = [
         CLASSIFIER_PATH,
         REGRESSOR_PATH,
@@ -26,14 +25,12 @@ def models_exist() -> bool:
 
 
 def get_metadata() -> dict:
-    """Retorna metadados do treinamento."""
     if not os.path.exists(METADATA_PATH):
         return {}
     return joblib.load(METADATA_PATH)
 
 
 def _load_artifacts() -> Tuple[Any, Any, Any, List[str], dict]:
-    """Carrega modelos, encoder, colunas e metadata."""
     if not models_exist():
         raise FileNotFoundError("Model artifacts not found. Run POST /train first.")
 
@@ -46,7 +43,6 @@ def _load_artifacts() -> Tuple[Any, Any, Any, List[str], dict]:
 
 
 def _validate_inputs(route_id: int, day_of_week: int, hour: int, average_speed: float) -> None:
-    """Validação básica das entradas da predição."""
     if route_id <= 0:
         raise ValueError("route_id must be greater than 0")
     if day_of_week < 0 or day_of_week > 6:
@@ -61,46 +57,46 @@ def engineer_features(
     route_id: int,
     day_of_week: int,
     hour: int,
-    average_speed: float = 40.0
+    average_speed: float = 40.0,
+    month: int | None = None
 ) -> pd.DataFrame:
-    """
-    Aplica as mesmas transformações de feature engineering usadas no treinamento.
-    Deve permanecer sincronizado com o app/train.py.
-    """
-
     def categorize_period(h: int) -> int:
         if 6 <= h < 9:
-            return 0  # pico matinal
+            return 0
         if 9 <= h < 11:
-            return 1  # pós pico matinal
+            return 1
         if 11 <= h < 13:
-            return 2  # meio do dia
+            return 2
         if 13 <= h < 15:
-            return 3  # almoço
+            return 3
         if 15 <= h < 18:
-            return 4  # pico vespertino
+            return 4
         if 18 <= h < 20:
-            return 5  # fim da tarde
-        return 6      # noite / madrugada
+            return 5
+        return 6
 
-    time_period = categorize_period(hour)
+    if month is None:
+        month = datetime.now().month
+
     is_weekend = int(day_of_week >= 5)
     is_business_day = int(day_of_week < 5)
-
-    congestion_multiplier = 1.3 if (7 <= hour <= 10 or 16 <= hour <= 19) else 1.0
-    traffic_ratio = 1.2 if (7 <= hour <= 10 or 16 <= hour <= 19) else 0.9
-
+    is_rush_hour = int((7 <= hour <= 10) or (16 <= hour <= 19))
+    congestion_multiplier = 1.3 if is_rush_hour else 1.0
+    traffic_ratio = 1.2 if is_rush_hour else 0.9
     speed_normalized = min(average_speed / 60.0, 1.0)
     hour_weekday_interaction = hour * day_of_week
+    time_period = categorize_period(hour)
 
     return pd.DataFrame([{
         "route_id": route_id,
         "day_of_week": day_of_week,
         "hour": hour,
+        "month": month,
         "average_speed": average_speed,
         "time_period": time_period,
         "is_weekend": is_weekend,
         "is_business_day": is_business_day,
+        "is_rush_hour": is_rush_hour,
         "congestion_multiplier": congestion_multiplier,
         "traffic_ratio": traffic_ratio,
         "speed_normalized": speed_normalized,
@@ -115,18 +111,13 @@ def _prepare_features_for_inference(
     average_speed: float,
     feature_columns: List[str]
 ) -> pd.DataFrame:
-    """
-    Gera features e garante a mesma ordem de colunas usada no treino.
-    """
     features_df = engineer_features(route_id, day_of_week, hour, average_speed)
 
     missing_columns = [col for col in feature_columns if col not in features_df.columns]
     if missing_columns:
         raise ValueError(f"Missing required feature columns for inference: {missing_columns}")
 
-    # Reordenar exatamente como no treino
-    ordered_df = features_df[feature_columns].copy()
-    return ordered_df
+    return features_df[feature_columns].copy()
 
 
 def predict(
@@ -135,13 +126,6 @@ def predict(
     hour: int,
     average_speed: float = 40.0
 ) -> Dict[str, Any]:
-    """
-    Predição completa:
-    - nível de tráfego
-    - duração em trânsito
-    - confiança
-    - recomendação
-    """
     _validate_inputs(route_id, day_of_week, hour, average_speed)
 
     clf, reg, le, feature_columns, metadata = _load_artifacts()
@@ -149,28 +133,23 @@ def predict(
         route_id, day_of_week, hour, average_speed, feature_columns
     )
 
-    # Classificação
     level_encoded = clf.predict(features_df)[0]
     level_label = le.inverse_transform([level_encoded])[0]
 
     probabilities = clf.predict_proba(features_df)[0]
     confidence = float(max(probabilities))
 
-    # Regressão
     predicted_duration_seconds = float(reg.predict(features_df)[0])
     predicted_duration_seconds = max(predicted_duration_seconds, 0.0)
     predicted_duration_minutes = round(predicted_duration_seconds / 60.0, 1)
 
-    is_peak_hour = (7 <= hour <= 10) or (16 <= hour <= 19)
+    is_peak_hour = bool(features_df.iloc[0]["is_rush_hour"])
 
     days_name = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]
     day_name = days_name[day_of_week]
 
     if level_label == "HIGH":
-        recommendation = (
-            f"Alto tráfego esperado. Considere sair "
-            f"{30 + (10 if is_peak_hour else 0)} minutos antes."
-        )
+        recommendation = f"Alto tráfego esperado. Considere sair {30 + (10 if is_peak_hour else 0)} minutos antes."
     elif level_label == "MEDIUM":
         recommendation = "Tráfego moderado. Saída normal recomendada."
     else:
@@ -208,10 +187,6 @@ def predict_best_hours_range(
     end_hour: int = 23,
     average_speed: float = 40.0
 ) -> List[Dict[str, Any]]:
-    """
-    Prediz tráfego para um intervalo de horas e retorna ranking.
-    O intervalo é inclusivo em end_hour.
-    """
     _validate_inputs(route_id, day_of_week, start_hour, average_speed)
     _validate_inputs(route_id, day_of_week, end_hour, average_speed)
 
@@ -221,18 +196,14 @@ def predict_best_hours_range(
     results = []
 
     for hour in range(start_hour, end_hour + 1):
-        try:
-            result = predict(route_id, day_of_week, hour, average_speed)
-            results.append({
-                "hour": hour,
-                "level": result["predicted_level"],
-                "duration": result["predicted_duration"],
-                "confidence": result["confidence"],
-                "is_peak": result["is_peak_hour"],
-            })
-        except Exception as e:
-            print(f"Warning: failed to predict hour {hour}: {e}")
-            continue
+        result = predict(route_id, day_of_week, hour, average_speed)
+        results.append({
+            "hour": hour,
+            "level": result["predicted_level"],
+            "duration": result["predicted_duration"],
+            "confidence": result["confidence"],
+            "is_peak": result["is_peak_hour"],
+        })
 
     level_order = {"LOW": 0, "MEDIUM": 1, "HIGH": 2}
     results.sort(key=lambda item: (level_order.get(item["level"], 99), item["duration"]))
@@ -240,9 +211,6 @@ def predict_best_hours_range(
 
 
 def get_route_insights(route_id: int) -> Dict[str, Any]:
-    """
-    Gera análise agregada de uma rota para toda a semana.
-    """
     if not models_exist():
         raise FileNotFoundError("Model artifacts not found.")
 
