@@ -1,0 +1,6 @@
+com\trafficData\Aracaju\tests\TokenServiceTest.class
+com\trafficData\Aracaju\tests\LocationServiceTest.class
+com\trafficData\Aracaju\AracajuApplicationTests.class
+com\trafficData\Aracaju\tests\TrafficDataServiceTest.class
+com\trafficData\Aracaju\tests\UserServiceTest.class
+com\trafficData\Aracaju\tests\RouteServiceTest.class

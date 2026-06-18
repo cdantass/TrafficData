@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.trafficData.Aracaju.AracajuApplicationTests
+-------------------------------------------------------------------------------
+Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 14.63 s -- in com.trafficData.Aracaju.AracajuApplicationTests

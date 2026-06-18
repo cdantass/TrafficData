@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: com.trafficData.Aracaju.tests.UserServiceTest
+-------------------------------------------------------------------------------
+Tests run: 8, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.292 s -- in com.trafficData.Aracaju.tests.UserServiceTest
